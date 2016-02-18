@@ -5,3 +5,4 @@ configuring-https
 checking-problems-in-bench
 email-notifications-for-failed-background-jobs
 how-to-enable-social-logins
+committing-changes-to-github
