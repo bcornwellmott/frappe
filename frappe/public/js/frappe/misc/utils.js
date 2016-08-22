@@ -32,9 +32,6 @@ frappe.utils = {
 		}
 		return true;
 	},
-	is_mobile: function() {
-		return frappe.utils.is_xs();
-	},
 	is_xs: function() {
 		return $(document).width() < 768;
 	},
@@ -46,6 +43,19 @@ frappe.utils = {
 	},
 	strip_whitespace: function(html) {
 		return (html || "").replace(/<p>\s*<\/p>/g, "").replace(/<br>(\s*<br>\s*)+/g, "<br><br>");
+	},
+	encode_tags: function(html) {
+		var tagsToReplace = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;'
+		};
+
+		function replaceTag(tag) {
+			return tagsToReplace[tag] || tag;
+		}
+
+		return html.replace(/[&<>]/g, replaceTag);
 	},
 	strip_original_content: function(txt) {
 		var out = [],

@@ -171,7 +171,7 @@ def export_json(context, doctype, path, name=None):
 @click.argument('path')
 @pass_context
 def export_csv(context, doctype, path):
-	"Export data import template for DocType"
+	"Export data import template with data for DocType"
 	from frappe.core.page.data_import_tool import data_import_tool
 	for site in context.sites:
 		try:
@@ -284,8 +284,9 @@ def console(context):
 @click.option('--driver', help="For Travis")
 @click.option('--module', help="Run tests in a module")
 @click.option('--profile', is_flag=True, default=False)
+@click.option('--junit-xml-output', help="Destination file path for junit xml report")
 @pass_context
-def run_tests(context, app=None, module=None, doctype=None, test=(), driver=None, profile=False):
+def run_tests(context, app=None, module=None, doctype=None, test=(), driver=None, profile=False, junit_xml_output=False):
 	"Run tests"
 	import frappe.test_runner
 	from frappe.utils import sel
@@ -299,7 +300,7 @@ def run_tests(context, app=None, module=None, doctype=None, test=(), driver=None
 
 	try:
 		ret = frappe.test_runner.main(app, module, doctype, context.verbose, tests=tests,
-			force=context.force, profile=profile)
+			force=context.force, profile=profile, junit_xml_output=junit_xml_output)
 		if len(ret.failures) == 0 and len(ret.errors) == 0:
 			ret = 0
 	finally:
@@ -382,6 +383,20 @@ def get_version():
 		if hasattr(module, "__version__"):
 			print "{0} {1}".format(m, module.__version__)
 
+@click.command('setup-help')
+@click.option('--mariadb_root_password')
+def setup_help(mariadb_root_password=None):
+	"Make a database for help documentation"
+	frappe.local.flags = frappe._dict()
+	frappe.local.flags.in_setup_help = True
+	frappe.local.flags.in_install = True
+	frappe.local.lang = 'en'
+	frappe.local.conf = frappe.get_site_config(sites_path='.')
+	if mariadb_root_password:
+		frappe.local.conf.root_password = mariadb_root_password
+	from frappe.utils.help import sync
+	sync()
+
 commands = [
 	build,
 	clear_cache,
@@ -406,4 +421,5 @@ commands = [
 	watch,
 	_bulk_rename,
 	add_to_email_queue,
+	setup_help
 ]
