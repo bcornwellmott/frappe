@@ -13,7 +13,7 @@ import os, sys, importlib, inspect, json
 from .exceptions import *
 from .utils.jinja import get_jenv, get_template, render_template
 
-__version__ = "7.0.27"
+__version__ = '7.1.0-beta'
 __title__ = "Frappe Framework"
 
 local = Local()
@@ -173,7 +173,9 @@ def get_site_config(sites_path=None, site_path=None):
 		if os.path.exists(site_config):
 			config.update(get_file_json(site_config))
 		elif local.site and not local.flags.new_site:
-			raise IncorrectSitePath, "{0} does not exist".format(site_config)
+			print "{0} does not exist".format(local.site)
+			sys.exit(1)
+			#raise IncorrectSitePath, "{0} does not exist".format(site_config)
 
 	return _dict(config)
 

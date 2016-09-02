@@ -168,7 +168,7 @@ def get_full_dict(lang):
 
 	:param lang: Language Code, e.g. `hi`
 	"""
-	if not lang or lang=='en':
+	if not lang:
 		return {}
 
 	# found in local, return!
@@ -201,15 +201,17 @@ def load_lang(lang, apps=None):
 		out = {}
 		for app in (apps or frappe.get_all_apps(True)):
 			path = os.path.join(frappe.get_pymodule_path(app), "translations", lang + ".csv")
-			out.update(get_translation_dict_from_file(path, lang, app))
+			out.update(get_translation_dict_from_file(path, lang, app) or {})
 
 		if '-' in lang:
 			parent = lang.split('-')[0]
-			out = load_lang(parent).update(out)
+			parent_out = load_lang(parent)
+			parent_out.update(out)
+			out = parent_out
 
 		frappe.cache().hset("lang_full_dict", lang, out)
 
-	return out
+	return out or {}
 
 def get_translation_dict_from_file(path, lang, app):
 	"""load translation dict from given path"""
@@ -677,6 +679,9 @@ def get_bench_dir():
 	return os.path.join(frappe.__file__, '..', '..', '..', '..')
 
 def rename_language(old_name, new_name):
+	if not frappe.db.exists('Language', new_name):
+		return
+
 	language_in_system_settings = frappe.db.get_single_value("System Settings", "language")
 	if language_in_system_settings == old_name:
 		frappe.db.set_value("System Settings", "System Settings", "language", new_name)

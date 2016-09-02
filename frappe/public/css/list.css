@@ -2,7 +2,7 @@
   padding: 15px;
 }
 .result-list {
-  min-height: 200px;
+  min-height: 400px;
 }
 .sort-selector .dropdown:hover {
   text-decoration: underline;
@@ -238,7 +238,7 @@ table.field-info tr td {
   border: 0px;
 }
 .image-field {
-  background-size: 100% 100% !important;
+  background-size: contain;
   position: relative;
 }
 .image-field:hover .field-info {

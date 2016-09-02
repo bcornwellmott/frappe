@@ -27,7 +27,7 @@ frappe.Application = Class.extend({
 		this.load_bootinfo();
 		this.make_nav_bar();
 		this.set_favicon();
-		this.setup_keyboard_shortcuts();
+		frappe.ui.keys.setup();
 		this.set_rtl();
 
 		if(frappe.boot) {
@@ -57,6 +57,8 @@ frappe.Application = Class.extend({
 
 		if (frappe.boot.change_log && frappe.boot.change_log.length) {
 			this.show_change_log();
+		} else {
+			this.show_notes();
 		}
 
 		// ask to allow notifications
@@ -176,6 +178,7 @@ frappe.Application = Class.extend({
 		user_email = frappe.boot.user.email;
 		sys_defaults = frappe.boot.sysdefaults;
 		frappe.ui.py_date_format = frappe.boot.sysdefaults.date_format.replace('dd', '%d').replace('mm', '%m').replace('yyyy', '%Y');
+		frappe.boot.user.last_selected_values = {};
 	},
 	sync_pages: function() {
 		// clear cached pages if timestamp is not found
@@ -252,77 +255,6 @@ frappe.Application = Class.extend({
 		}
 	},
 
-	setup_keyboard_shortcuts: function() {
-		var me = this;
-
-		$(document)
-			.keydown("meta+g ctrl+g", function(e) {
-				$("#navbar-search").focus();
-				return false;
-			})
-			.keydown("meta+s ctrl+s", function(e) {
-				e.preventDefault();
-				me.trigger_primary_action();
-				return false;
-			})
-			.keydown("meta+b ctrl+b", function(e) {
-				e.preventDefault();
-				var route = frappe.get_route();
-				if(route[0]==='Form' || route[0]==='List') {
-					frappe.new_doc(route[1], true);
-				}
-				return false;
-			})
-			.keydown("esc", function(e) {
-				// close open grid row
-				var open_row = $(".grid-row-open");
-				if(open_row.length) {
-					var grid_row = open_row.data("grid_row");
-					grid_row.toggle_view(false);
-					return false;
-				}
-
-				// close open dialog
-				if(cur_dialog && !cur_dialog.no_cancel_flag) {
-					cur_dialog.cancel();
-					return false;
-				}
-			})
-			.keydown("return", function() {
-				if(cur_dialog && cur_dialog.confirm_dialog) {
-					cur_dialog.get_primary_btn().trigger('click');
-				}
-			})
-			.keydown("ctrl+down meta+down", function(e) {
-				var open_row = $(".grid-row-open");
-				if(open_row.length) {
-					var grid_row = open_row.data("grid_row");
-					grid_row.toggle_view(false, function() { grid_row.open_next() });
-					return false;
-				}
-			})
-			.keydown("ctrl+up meta+up", function(e) {
-				var open_row = $(".grid-row-open");
-				if(open_row.length) {
-					var grid_row = open_row.data("grid_row");
-					grid_row.toggle_view(false, function() { grid_row.open_prev() });
-					return false;
-				}
-			})
-			.keydown("ctrl+n meta+n", function(e) {
-				var open_row = $(".grid-row-open");
-				if(open_row.length) {
-					var grid_row = open_row.data("grid_row");
-					grid_row.toggle_view(false, function() { grid_row.grid.add_new_row(grid_row.doc.idx, null, true); });
-					return false;
-				}
-			})
-			.keydown("ctrl+shift+r meta+shift+r", function(e) {
-				frappe.ui.toolbar.clear_cache();
-			});
-
-	},
-
 	set_rtl: function () {
 		if (["ar", "he"].indexOf(frappe.boot.lang) >= 0) {
 			$('body').addClass('frappe-rtl')
@@ -330,6 +262,7 @@ frappe.Application = Class.extend({
 	},
 
 	show_change_log: function() {
+		var me = this;
 		var d = frappe.msgprint(
 			frappe.render_template("change_log", {"change_log": frappe.boot.change_log}),
 			__("Updated To New Version")
@@ -339,8 +272,33 @@ frappe.Application = Class.extend({
 			frappe.call({
 				"method": "frappe.utils.change_log.update_last_known_versions"
 			});
+			me.show_notes();
 		};
-	}
+	},
+
+	show_notes: function() {
+		var me = this;
+		if(frappe.boot.notes.length) {
+			frappe.boot.notes.forEach(function(note) {
+				if(!note.seen) {
+					var d = frappe.msgprint({message:note.content, title:note.title});
+					d.keep_open = true;
+					d.custom_onhide = function() {
+						note.seen = true;
+						frappe.call({
+							method: "frappe.desk.doctype.note.note.mark_as_seen",
+							args: {
+								note: note.name
+							}
+						});
+						// next note
+						me.show_notes();
+
+					}
+				}
+			})
+		}
+	},
 });
 
 frappe.get_module = function(m, default_module) {
