@@ -56,8 +56,6 @@ def get_lang_dict(fortype, name=None):
 
 	 :param fortype: must be one of `doctype`, `page`, `report`, `include`, `jsfile`, `boot`
 	 :param name: name of the document for which assets are to be returned."""
-	if local.lang=="en":
-		return {}
 	from frappe.translate import get_dict
 	return get_dict(fortype, name)
 
@@ -1116,7 +1114,7 @@ def as_json(obj, indent=1):
 	return json.dumps(obj, indent=indent, sort_keys=True, default=json_handler)
 
 def are_emails_muted():
-	return flags.mute_emails or conf.get("mute_emails") or False
+	return flags.mute_emails or int(conf.get("mute_emails") or 0) or False
 
 def get_test_records(doctype):
 	"""Returns list of objects from `test_records.json` in the given doctype's folder."""
@@ -1128,13 +1126,13 @@ def get_test_records(doctype):
 	else:
 		return []
 
-def format_value(value, df, doc=None, currency=None):
+def format_value(*args, **kwargs):
 	"""Format value with given field properties.
 
 	:param value: Value to be formatted.
-	:param df: DocField object with properties `fieldtype`, `options` etc."""
+	:param df: (Optional) DocField object with properties `fieldtype`, `options` etc."""
 	import frappe.utils.formatters
-	return frappe.utils.formatters.format_value(value, df, doc, currency=currency)
+	return frappe.utils.formatters.format_value(*args, **kwargs)
 
 def get_print(doctype=None, name=None, print_format=None, style=None, html=None, as_pdf=False, doc=None):
 	"""Get Print Format for given document.

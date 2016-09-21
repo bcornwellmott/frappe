@@ -110,9 +110,10 @@ def restore(context, sql_file_path, mariadb_root_username=None, mariadb_root_pas
 		os.remove(private)
 
 @click.command('reinstall')
+@click.option('--admin-password', help='Administrator Password for reinstalled site')
 @click.option('--yes', is_flag=True, default=False, help='Pass --yes to skip confirmation')
 @pass_context
-def reinstall(context, yes=False):
+def reinstall(context, admin_password=None, yes=False):
 	"Reinstall site ie. wipe all data and start over"
 
 	if not yes:
@@ -134,7 +135,7 @@ def reinstall(context, yes=False):
 
 	frappe.init(site=site)
 	_new_site(frappe.conf.db_name, site, verbose=context.verbose, force=True, reinstall=True,
-		install_apps=installed)
+		install_apps=installed, admin_password=admin_password)
 
 @click.command('install-app')
 @click.argument('app')
@@ -233,6 +234,20 @@ def reload_doc(context, module, doctype, docname):
 			frappe.init(site=site)
 			frappe.connect()
 			frappe.reload_doc(module, doctype, docname, force=context.force)
+			frappe.db.commit()
+		finally:
+			frappe.destroy()
+
+@click.command('reload-doctype')
+@click.argument('doctype')
+@pass_context
+def reload_doctype(context, doctype):
+	"Reload schema for a DocType"
+	for site in context.sites:
+		try:
+			frappe.init(site=site)
+			frappe.connect()
+			frappe.reload_doctype(doctype, force=context.force)
 			frappe.db.commit()
 		finally:
 			frappe.destroy()
@@ -454,6 +469,7 @@ commands = [
 	new_site,
 	reinstall,
 	reload_doc,
+	reload_doctype,
 	remove_from_installed_apps,
 	restore,
 	run_patch,
