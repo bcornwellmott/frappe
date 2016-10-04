@@ -107,6 +107,7 @@ frappe.views.ReportView = frappe.ui.Listing.extend({
 		this.make_sorter();
 		this.setup_print();
 		this.make_export();
+		this.setup_auto_email();
 		this.set_init_columns();
 		this.make_save();
 		this.make_user_permissions();
@@ -116,6 +117,7 @@ frappe.views.ReportView = frappe.ui.Listing.extend({
 		this.page.add_menu_item(__("Add to Desktop"), function() {
 			frappe.add_to_desktop(__('{0} Report', [me.doctype]), me.doctype);
 		}, true);
+
 	},
 
 	make_new_and_refresh: function() {
@@ -128,6 +130,17 @@ frappe.views.ReportView = frappe.ui.Listing.extend({
 			me.make_new_doc(me.doctype);
 		}, true);
 
+	},
+
+	setup_auto_email: function() {
+		var me = this;
+		this.page.add_menu_item(__("Setup Auto Email"), function() {
+			if(me.docname) {
+				frappe.set_route('List', 'Auto Email Report', {'report' : me.docname});
+			} else {
+				frappe.msgprint({message:__('Please save the report first'), indicator: 'red'});
+			}
+		}, true);
 	},
 
 	set_init_columns: function() {
@@ -338,7 +351,7 @@ frappe.views.ReportView = frappe.ui.Listing.extend({
 		this.dataView = new Slick.Data.DataView();
 		this.set_data(this.data);
 
-		var grid_wrapper = this.$w.find('.result-list').addClass("slick-wrapper");
+		var grid_wrapper = this.wrapper.find('.result-list').addClass("slick-wrapper");
 
 		// set height if not auto
 		if(!options.autoHeight)
@@ -491,13 +504,13 @@ frappe.views.ReportView = frappe.ui.Listing.extend({
 
 	set_tag_and_status_filter: function() {
 		var me = this;
-		this.$w.find('.result-list').on("click", ".label-info", function() {
+		this.wrapper.find('.result-list').on("click", ".label-info", function() {
 			if($(this).attr("data-label")) {
 				me.set_filter("_user_tags", $(this).attr("data-label"));
 				me.refresh();
 			}
 		});
-		this.$w.find('.result-list').on("click", "[data-workflow-state]", function() {
+		this.wrapper.find('.result-list').on("click", "[data-workflow-state]", function() {
 			if($(this).attr("data-workflow-state")) {
 				me.set_filter(me.state_fieldname,
 					$(this).attr("data-workflow-state"));

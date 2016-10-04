@@ -18,7 +18,7 @@ def get_context(context):
 	context.no_cache = 1
 	context.api_key = Controller().get_settings().api_key
 
-	context.brand_image = './assets/erpnext/images/erp-icon.svg'
+	installed_apps = frappe.get_installed_apps()
 
 	# all these keys exist in form_dict
 	if not (set(expected_keys) - set(frappe.form_dict.keys())):
@@ -35,14 +35,14 @@ def get_context(context):
 @frappe.whitelist(allow_guest=True)
 def make_payment(razorpay_payment_id, options, reference_doctype, reference_docname):
 	data = {}
-	
+
 	if isinstance(options, basestring):
 		data = json.loads(options)
-	
+
 	data.update({
 		"razorpay_payment_id": razorpay_payment_id,
 		"reference_docname": reference_docname,
 		"reference_doctype": reference_doctype
 	})
-	
+
 	return Controller().create_request(data)

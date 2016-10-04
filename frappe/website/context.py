@@ -3,7 +3,6 @@
 
 from __future__ import unicode_literals
 import frappe
-import json
 
 from frappe.website.doctype.website_settings.website_settings import get_website_settings
 from frappe.website.router import get_page_context
@@ -83,7 +82,7 @@ def build_context(context):
 	elif context.controller:
 		# controller based context
 		update_controller_context(context, context.controller)
-		
+
 		# controller context extensions
 		context_controller_hooks = frappe.get_hooks("extend_website_page_controller_context") or {}
 		for controller, extension in context_controller_hooks.items():
@@ -97,6 +96,7 @@ def build_context(context):
 	add_metatags(context)
 
 	if context.show_sidebar:
+		context.no_cache = 1
 		add_sidebar_data(context)
 
 	# determine templates to be used
@@ -111,19 +111,31 @@ def add_sidebar_data(context):
 	import frappe.www.list
 
 	if not context.sidebar_items:
-		sidebar_items = json.loads(frappe.cache().get_value('portal_menu_items') or '[]')
+		sidebar_items = frappe.cache().hget('portal_menu_items', frappe.session.user)
+		if sidebar_items == None:
+			sidebar_items = []
+			roles = frappe.get_roles()
+			portal_settings = frappe.get_doc('Portal Settings', 'Portal Settings')
 
-		if not sidebar_items:
-			sidebar_items = frappe.get_all('Portal Menu Item',
-				fields=['title', 'route', 'reference_doctype', 'show_always'],
-				filters={'enabled': 1, 'parent': 'Portal Settings'}, order_by='idx asc')
-			frappe.cache().set_value('portal_menu_items', json.dumps(sidebar_items))
+			def add_items(sidebar_items, menu_field):
+				for d in portal_settings.get(menu_field):
+					if d.enabled and ((not d.role) or d.role in roles):
+						sidebar_items.append(d.as_dict())
+
+			if not portal_settings.hide_standard_menu:
+				add_items(sidebar_items, 'menu')
+
+			if portal_settings.custom_menu:
+				add_items(sidebar_items, 'custom_menu')
+
+			frappe.cache().hset('portal_menu_items', frappe.session.user, sidebar_items)
 
 		context.sidebar_items = sidebar_items
 
 	info = get_fullname_and_avatar(frappe.session.user)
 	context["fullname"] = info.fullname
 	context["user_image"] = info.avatar
+	context["user"] = info.name
 
 
 def add_metatags(context):

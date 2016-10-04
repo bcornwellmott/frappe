@@ -92,13 +92,19 @@ class Controller(IntegrationController):
 		self.validate_paypal_credentails(use_test_account)
 
 	def get_settings(self):
+		if not hasattr(self, "parameters"):
+			parameters = frappe.db.get_value("Integration Service", self.service_name,
+				["custom_settings_json"])
+			self.parameters = json.loads(parameters)
+		
 		return frappe._dict(self.parameters)
 
 	def validate_transaction_currency(self, currency):
 		if currency not in self.supported_currencies:
 			frappe.throw(_("Please select another payment method. {0} does not support transactions in currency '{1}'").format(self.service_name, currency))
 
-	def get_paypal_params_and_url(self, use_test_account):
+	def get_paypal_params_and_url(self, use_test_account=None):
+		use_test_account = frappe.db.get_value("Integration Service", self.service_name, ["use_test_account"])
 		paypal_settings = frappe._dict(self.get_settings())
 
 		params = {
@@ -127,10 +133,8 @@ class Controller(IntegrationController):
 			frappe.throw(_("Invalid payment gateway credentials"))
 
 	def get_payment_url(self, **kwargs):
-		use_test_account, custom_settings_json = frappe.db.get_value("Integration Service", self.service_name, ["use_test_account", "custom_settings_json"])
-		self.parameters = json.loads(custom_settings_json)
-
-		response = self.execute_set_express_checkout(kwargs["amount"], kwargs["currency"], use_test_account)
+		use_test_account = frappe.db.get_value("Integration Service", self.service_name, ["use_test_account"])
+		response = self.execute_set_express_checkout(kwargs["amount"], kwargs["currency"])
 
 		if use_test_account:
 			return_url = "https://www.sandbox.paypal.com/cgi-bin/webscr?cmd=_express-checkout&token={0}"
@@ -146,13 +150,13 @@ class Controller(IntegrationController):
 
 		return return_url.format(kwargs["token"])
 
-	def execute_set_express_checkout(self, amount, currency, use_test_account):
-		params, url = self.get_paypal_params_and_url(use_test_account)
+	def execute_set_express_checkout(self, amount, currency):
+		params, url = self.get_paypal_params_and_url()
 		params.update({
 			"METHOD": "SetExpressCheckout",
 			"PAYMENTREQUEST_0_PAYMENTACTION": "SALE",
 			"PAYMENTREQUEST_0_AMT": amount,
-			"PAYMENTREQUEST_0_CURRENCYCODE": currency,
+			"PAYMENTREQUEST_0_CURRENCYCODE": currency.upper(),
 			"returnUrl": get_url("/api/method/frappe.integrations.paypal.get_express_checkout_details"),
 			"cancelUrl": get_url("/payment-cancel")
 		})
@@ -167,10 +171,7 @@ class Controller(IntegrationController):
 
 @frappe.whitelist(allow_guest=True, xss_safe=True)
 def get_express_checkout_details(token):
-	use_test_account, custom_settings_json = frappe.db.get_value("Integration Service", "PayPal", ["use_test_account", "custom_settings_json"])
-	Controller.parameters = json.loads(custom_settings_json)
-
-	params, url = Controller().get_paypal_params_and_url(use_test_account)
+	params, url = Controller().get_paypal_params_and_url()
 	params.update({
 		"METHOD": "GetExpressCheckoutDetails",
 		"TOKEN": token
@@ -199,20 +200,17 @@ def get_express_checkout_details(token):
 def confirm_payment(token):
 	redirect = True
 	status_changed_to, redirect_to = None, None
-
-	use_test_account = frappe.db.get_value("Integration Service", "PayPal", "use_test_account")
 	integration_request = frappe.get_doc("Integration Request", token)
-
 	data = json.loads(integration_request.data)
 
-	params, url = Controller().get_paypal_params_and_url(use_test_account)
+	params, url = Controller().get_paypal_params_and_url()
 	params.update({
 		"METHOD": "DoExpressCheckoutPayment",
 		"PAYERID": data.get("payerid"),
 		"TOKEN": token,
 		"PAYMENTREQUEST_0_PAYMENTACTION": "SALE",
 		"PAYMENTREQUEST_0_AMT": data.get("amount"),
-		"PAYMENTREQUEST_0_CURRENCYCODE": data.get("currency")
+		"PAYMENTREQUEST_0_CURRENCYCODE": data.get("currency").upper()
 	})
 
 	response = Controller().post_request(url, data=params)
@@ -225,6 +223,10 @@ def confirm_payment(token):
 
 		if data.get("reference_doctype") and data.get("reference_docname"):
 			redirect_to = frappe.get_doc(data.get("reference_doctype"), data.get("reference_docname")).run_method("on_payment_authorized", "Completed")
+
+		if not redirect_to:
+			if data.get('redirect_to'):
+				redirect_to = data.get('redirect_to')
 
 		redirect_to = redirect_to or get_url("/integrations/payment-success")
 

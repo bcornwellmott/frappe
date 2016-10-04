@@ -11,7 +11,7 @@ Example:
 
 	from frappe.integration_broker.doctype.integration_service.integration_service import get_integration_controller
 
-	controller = get_integration_controller("Razorpay", setup=False)
+	controller = get_integration_controller("Razorpay")
 	controller().validate_transaction_currency(currency)
 
 ### 2. Redirect for payment
@@ -29,8 +29,6 @@ Example:
 		"order_id": "111",
 		"currency": "INR"
 	}
-
-	from frappe.integration.razorpay import get_checkout_url
 
 	# Redirect the user to this url
 	url = controller().get_payment_url(**payment_details)
@@ -129,6 +127,7 @@ class Controller(IntegrationController):
 			return self.authorize_payment()
 
 		except Exception:
+			frappe.log_error(frappe.get_traceback())
 			return{
 				"redirect_to": frappe.redirect_to_message(_('Server Error'), _("Seems issue with server's razorpay config. Don't worry, in case of failure amount will get refunded to your account.")),
 				"status": 401
@@ -142,24 +141,46 @@ class Controller(IntegrationController):
 		"""
 
 		settings = self.get_settings()
+		data = json.loads(self.integration_request.data)
+		redirect_to = data.get('notes', {}).get('redirect_to') or None
+		redirect_message = data.get('notes', {}).get('redirect_message') or None
 
 		if self.integration_request.status != "Authorized":
-			resp = self.get_request("https://api.razorpay.com/v1/payments/{0}"
-				.format(self.data.razorpay_payment_id), auth=(settings.api_key,
-					settings.api_secret))
+			try:
+				resp = self.get_request("https://api.razorpay.com/v1/payments/{0}"
+					.format(self.data.razorpay_payment_id), auth=(settings.api_key,
+						settings.api_secret))
 
-			if resp.get("status") == "authorized":
-				self.integration_request.db_set('status', 'Authorized', update_modified=False)
-				self.flags.status_changed_to = "Authorized"
+				if resp.get("status") == "authorized":
+					self.integration_request.db_set('status', 'Authorized', update_modified=False)
+					self.flags.status_changed_to = "Authorized"
+			except:
+				frappe.log_error(frappe.get_traceback())
+				# failed
+				pass
+
+			status = frappe.flags.integration_request.status_code
 
 		if self.flags.status_changed_to == "Authorized":
 			if self.data.reference_doctype and self.data.reference_docname:
-				redirect_to = frappe.get_doc(self.data.reference_doctype, self.data.reference_docname).run_method("on_payment_authorized", self.flags.status_changed_to)
+				custom_redirect_to = frappe.get_doc(self.data.reference_doctype,
+					self.data.reference_docname).run_method("on_payment_authorized", self.flags.status_changed_to)
+				if custom_redirect_to:
+					redirect_to = custom_redirect_to
 
-			return {
-				"redirect_to": redirect_to or "payment-success",
-				"status": 200
-			}
+			redirect_url = 'payment-success'
+		else:
+			redirect_url = 'payment-failed'
+
+		if redirect_to:
+			redirect_url += '?' + urllib.urlencode({'redirect_to': redirect_to})
+		if redirect_message:
+			redirect_url += '&' + urllib.urlencode({'redirect_message': redirect_message})
+
+		return {
+			"redirect_to": redirect_url,
+			"status": status
+		}
 
 def capture_payment(is_sandbox=False, sanbox_response=None):
 	"""
