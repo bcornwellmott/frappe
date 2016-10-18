@@ -11,9 +11,12 @@ from frappe import _
 
 @frappe.whitelist()
 def get():
-	args = get_form_params()
+	args, add_totals = get_form_params()
 	args.save_list_settings = True
+	
 	data = compress(execute(**args))
+	if add_totals == "true":
+		data = add_totals_row(data)
 
 	return data
 
@@ -24,6 +27,8 @@ def get_form_params():
 	"""Stringify GET request parameters."""
 	data = frappe._dict(frappe.local.form_dict)
 
+	add_totals = data["add_totals_row"]
+	del data["add_totals_row"]
 	del data["cmd"]
 
 	if isinstance(data.get("filters"), basestring):
@@ -33,10 +38,11 @@ def get_form_params():
 	if isinstance(data.get("docstatus"), basestring):
 		data["docstatus"] = json.loads(data["docstatus"])
 
+
 	# queries must always be server side
 	data.query = None
 
-	return data
+	return data,add_totals
 
 def compress(data):
 	"""separate keys and values"""
@@ -54,6 +60,21 @@ def compress(data):
 		"values": values
 	}
 
+def add_totals_row(data):
+	if not data: return data
+	totals = []
+	totals.extend([0]*len(data.get("keys")))
+	values = data.get("values")
+
+	for row in values:
+		for i in xrange(len(data.get("keys"))):
+			try: 
+				totals[i] += row[i]
+			except (TypeError,ValueError) as e:
+				pass
+	data.get("values").append(totals)
+	
+	return data
 
 @frappe.whitelist()
 def save_report():

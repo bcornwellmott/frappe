@@ -218,10 +218,9 @@ frappe.ui.Listing = Class.extend({
 		if(!me.opts.no_loading) {
 			me.set_working(true);
 		}
-
+		
 		var args = this.get_call_args();
 		this.save_list_settings_locally(args);
-
 		return frappe.call({
 			method: this.opts.method || 'frappe.desk.query_builder.runquery',
 			type: "GET",
