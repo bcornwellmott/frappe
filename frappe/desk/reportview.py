@@ -26,9 +26,13 @@ def execute(doctype, *args, **kwargs):
 def get_form_params():
 	"""Stringify GET request parameters."""
 	data = frappe._dict(frappe.local.form_dict)
-
-	add_totals = data["add_totals_row"]
-	del data["add_totals_row"]
+	
+	if "add_totals_row" in data:
+		add_totals = data["add_totals_row"]
+		del data["add_totals_row"]
+	else:
+		add_totals = None
+		
 	del data["cmd"]
 
 	if isinstance(data.get("filters"), basestring):
