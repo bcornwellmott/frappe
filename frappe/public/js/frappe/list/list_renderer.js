@@ -310,13 +310,13 @@ frappe.views.ListRenderer = Class.extend({
 	render_view: function (values) {
 		var me = this;
 		var $list_items = me.wrapper.find('.list-items');
-
+		
 		if($list_items.length === 0) {
 			$list_items = $(`
 				<div class="list-items">
-				</div>
-			`);
-			me.wrapper.append($list_items);
+				</div>		
+			`);		
+			me.wrapper.append($list_items);		
 		}
 
 		values.map(value => {
@@ -405,7 +405,7 @@ frappe.views.ListRenderer = Class.extend({
 	},
 
 	get_indicator_html: function (doc) {
-		var indicator = frappe.get_indicator(doc, this.doctype);
+		var indicator = frappe.get_indicator(doc, this.doctype, frappe.workflow.workflows[this.doctype]['override_status']);
 		if (indicator) {
 			return `<span class='indicator ${indicator[1]} filterable'
 				data-filter='${indicator[2]}'>
@@ -416,7 +416,7 @@ frappe.views.ListRenderer = Class.extend({
 	},
 
 	get_indicator_dot: function (doc) {
-		var indicator = frappe.get_indicator(doc, this.doctype);
+		var indicator = frappe.get_indicator(doc, this.doctype, frappe.workflow.workflows[this.doctype]['override_status']);
 		if (!indicator) {
 			return '';
 		}
