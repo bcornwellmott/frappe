@@ -18,7 +18,6 @@ frappe.get_indicator = function(doc, doctype, without_workflow = true) {
 	if(doc.__unsaved) {
 		return [__("Not Saved"), "orange"];
 	}
-
 	if(!doctype) doctype = doc.doctype;
 
 	var settings = frappe.listview_settings[doctype] || {};
